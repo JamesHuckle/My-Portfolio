@@ -86,8 +86,11 @@ class print_to_log():
     def set_traceback_logging(self):
         return self.t
 
+class variables():
+    None
+
 # %% [markdown]
-# ## Class based algorithm
+# ## Class based algorithm 
 
 # %%
 #########################################################
@@ -95,9 +98,9 @@ class print_to_log():
 class deri_algo():        
     def __init__(self,account_name,testing=False):
         self.testing = testing
-        self.var = fixed_variables()
-        self.data = data_variables(var)
-        self.stat = status_variables()
+        self.var = variables()
+        self.data = variables()
+        self.stat = variables()
         self.arb_algo_path = os.getcwd().replace("\\python_scripts","")
         now = datetime.datetime.utcnow().date()# - datetime.timedelta(days=1)
         ### logging statement changes
