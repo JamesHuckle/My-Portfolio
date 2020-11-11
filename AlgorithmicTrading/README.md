@@ -1,5 +1,5 @@
-[Deep learning time series report (weights and biases)](https://wandb.ai/jameshuckle/timeseries-3/reports/Deep-learning-for-time-series--VmlldzozMTY4NDE?accessToken=dcnujazmnsw0ouuas0s6fu8pxywes82rhaed8e64xwytsx2wvs86cilu8a3bydt9)
 # Deep learning for time series
+[Click here to view the **interactive** report (weights and biases)](https://wandb.ai/jameshuckle/timeseries-3/reports/Deep-learning-for-time-series--VmlldzozMTY4NDE?accessToken=dcnujazmnsw0ouuas0s6fu8pxywes82rhaed8e64xwytsx2wvs86cilu8a3bydt9)
 ## Parameter importance
 ![image](https://www.dropbox.com/s/ms2beoqy0ccjrvf/1.PNG?raw=1)
 ![image](https://www.dropbox.com/s/3vqbue03adkqqzn/2.PNG?raw=1)
