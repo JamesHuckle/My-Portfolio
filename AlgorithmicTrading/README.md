@@ -37,7 +37,7 @@ The ideal learning curve has both training and validation loss trending lower wh
 ![image](https://www.dropbox.com/s/q528ym8icevph4b/7.PNG?raw=1)
 ### Out of sample test results
 Out of sample test data is from 2019-2020 (time period not used during the training or validation proccess) <br>
-Is used to estimate out of sample variancew with the results being represented as cumulative percentage returns (percentage equity curve, based at 0).
+Is used to estimate out of sample variance with the results being represented as cumulative percentage returns (percentage equity curve, based at 0).
 #### Best 7 models
 ![image](https://www.dropbox.com/s/7w7jl2719yiexpt/8.PNG?raw=1)
 ![image](https://www.dropbox.com/s/foyoyhsh7e7q3dk/9.PNG?raw=1)
@@ -80,9 +80,13 @@ The instrument are then merged in chronological order.
 
 # Machine learning 
 ## Results
+### Parameter importance
 ![image](https://www.dropbox.com/s/8q23od4vk003knx/15.png?raw=1)
 ![image](https://www.dropbox.com/s/0xxrux1lxlw5n71/16.jpg?raw=1)
 ![image](https://www.dropbox.com/s/mjyernm1f5x7t64/17.PNG?raw=1)
+### Out of sample test results
+Out of sample test data is from 2019-2020 (time period not used during the training or validation proccess) <br>
+Is used to estimate out of sample variance with the results being represented as cumulative percentage returns (percentage equity curve, based at 0).
 ![image](https://www.dropbox.com/s/t5164tbz405l0mz/18.png?raw=1)
 ![image](https://www.dropbox.com/s/i6u36wc4gnhfhgv/19.png?raw=1)
 
