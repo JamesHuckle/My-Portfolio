@@ -46,16 +46,13 @@ Is used to estimate out of sample variancew with the results being represented a
 ![image](https://www.dropbox.com/s/e95l51unki0u429/11.PNG?raw=1)
 
 ## Full details
-
-
-# Machine learning results
-## Goals
+### Goals
 Succesfully predicting the future price movements of equities, FX, and crypto currency time series. <br>
 Time horizon for prediction ranges from one hour to multiple weeks and is broadly a circumstance of the granularity of the data used to train the model. <br>
 Correct inference of both the direction and magnitude of a future price movement are of vital importance in building a successful trading strategy. <br>
 Volatility is a latent variable which can be inferred from the duration of a price move, its direction, and its magnitude.
 
-## Data
+### Data
 Intial training/testing was conducted on a basket of major FX markets from 2003-2020. <br>
 The data represents daily open, high, low, close of the given instruments. <br>
 ### Features
@@ -67,6 +64,24 @@ Each OHLC value is normalized against the previous bar's close, creating a perce
 The data is then scaled using standardization or min max normalization which become a model hyperparameter.
 ![image](https://www.dropbox.com/s/uw60hqopw7talu9/14.PNG?raw=1)
 
+### Labels
+The percentage change from the last input bar’s close to the close of a set number of bars in the future. <br>
+The places the importance on the relative magnitude of each price move rather than absolute values.
+
+### Train / validation / test sets
+Careful consideration has gone into arranging the training, validation and test sets as to avoid look ahead bias.
+The temperal aspect of time series data is respected by splitting each instrument separately into the following: <br>
+Training data is from 2003-2016 <br>
+Validation data is from 2016-2018 <br>
+Out of sample test data is from 2019-2020 <br>
+The instrument are then merged in chronological order.
+
+### Hyperparameters
+
+# Machine learning 
+## Results
+![image](https://www.dropbox.com/s/ze7knlidcd9nmwo/16.PNG?raw=1)
+![image](https://www.dropbox.com/s/k8bxel7kuhszmcq/17.png?raw=1)
 
 
 
