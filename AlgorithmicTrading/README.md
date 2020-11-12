@@ -49,5 +49,24 @@ Is used to estimate out of sample variancew with the results being represented a
 
 
 # Machine learning results
+## Goals
+Succesfully predicting the future price movements of equities, FX, and crypto currency time series. <br>
+Time horizon for prediction ranges from one hour to multiple weeks and is broadly a circumstance of the granularity of the data used to train the model. <br>
+Correct inference of both the direction and magnitude of a future price movement are of vital importance in building a successful trading strategy. <br>
+Volatility is a latent variable which can be inferred from the duration of a price move, its direction, and its magnitude.
+
+## Data
+Intial training/testing was conducted on a basket of major FX markets from 2003-2020. <br>
+The data represents daily open, high, low, close of the given instruments. <br>
+### Features
+Flattened OHLC into a single row. <br>
+Sliding window of one day. <br>
+![image](https://www.dropbox.com/s/o8layjx21mafj3i/12.PNG?raw=1)
+Each OHLC value is normalized against the previous bar's close, creating a percentage difference between the two.
+![image](https://www.dropbox.com/s/v97p7qkdl8qsie5/13.PNG?raw=1)
+The data is then scaled using standardization or min max normalization which become a model hyperparameter.
+![image](https://www.dropbox.com/s/uw60hqopw7talu9/14.PNG?raw=1)
+
+
 
 
