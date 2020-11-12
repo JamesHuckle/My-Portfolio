@@ -55,7 +55,7 @@ Volatility is a latent variable which can be inferred from the duration of a pri
 ### Data
 Intial training/testing was conducted on a basket of major FX markets from 2003-2020. <br>
 The data represents daily open, high, low, close of the given instruments. <br>
-### Features
+#### Features
 Flattened OHLC into a single row. <br>
 Sliding window of one day. <br>
 ![image](https://www.dropbox.com/s/o8layjx21mafj3i/12.PNG?raw=1)
@@ -63,31 +63,63 @@ Each OHLC value is normalized against the previous bar's close, creating a perce
 ![image](https://www.dropbox.com/s/v97p7qkdl8qsie5/13.PNG?raw=1)
 The data is then scaled using standardization or min max normalization which become a model hyperparameter.
 ![image](https://www.dropbox.com/s/uw60hqopw7talu9/14.PNG?raw=1)
-
-### Labels
+#### Labels
 The percentage change from the last input bar’s close to the close of a set number of bars in the future. <br>
-The places the importance on the relative magnitude of each price move rather than absolute values.
-
-### Train / validation / test sets
+This places the importance on the relative magnitude of each price move rather than absolute values.
+#### Train / validation / test sets
 Careful consideration has gone into arranging the training, validation and test sets as to avoid look ahead bias.
 The temperal aspect of time series data is respected by splitting each instrument separately into the following: <br>
 Training data is from 2003-2016 <br>
 Validation data is from 2016-2018 <br>
 Out of sample test data is from 2019-2020 <br>
-The instrument are then merged in chronological order.
+The instruments are then merged in chronological order.
+### Data hyperparameters
+**Dimensionality reduction** - PCA with varying degrees of features kept. <br>
 
-### Hyperparameters
+### Evaluation
+**Trading costs** - A naive figure of one basis point has been added to account for the average transaction fee plus slippage experienced in the institutional market. Whilst transaction costs vary wildly depending on the traded instrument and the amount of negative slippage experienced varies for each trade, one basis point for liquid FX major pairs should be an acceptable benchmark for the first pass. <br>
+**Reward function** - ROMAD (return over maximum drawdown). Higher is better. <br>
+**Cross fold validation** - Make use of scikit-learn module TimeSeriesSplit which respects or temporal / ordered nature of time series data: <br>
+![image](https://www.dropbox.com/s/10r4ca8zh0bpuh3/20.png?raw=1) <br>
+Use a custom built function TimeSeriesShift which keeps the training and validation sets the same size, thus making it fairer for evaluations across different folds / time periods, reducing bias in the validation.  <br>
+![image](https://www.dropbox.com/s/ntxsq4g0wftaf8i/21.png?raw=1) <br>
+The method used for aggregating the performance across the folds includes the following: <br>
+* Mean, median, max, min, sum, last
+* 1 / standard deviation
+* Weighted by size of training fold (TimeSeriesSplit)
+* Binary evaluation of whether each successive fold improves on the last, assuming each fold gets larger (TimeSeriesSplit)
+
 
 # Machine learning 
 ## Results
-### Parameter importance
+### Parameter importance (using cross-fold validation)
 ![image](https://www.dropbox.com/s/8q23od4vk003knx/15.png?raw=1)
 ![image](https://www.dropbox.com/s/0xxrux1lxlw5n71/16.jpg?raw=1)
 ![image](https://www.dropbox.com/s/mjyernm1f5x7t64/17.PNG?raw=1)
 ### Out of sample test results
 Out of sample test data is from 2019-2020 (time period not used during the training or validation proccess) <br>
 Is used to estimate out of sample variance with the results being represented as cumulative percentage returns (percentage equity curve, based at 0).
+
 ![image](https://www.dropbox.com/s/t5164tbz405l0mz/18.png?raw=1)
 ![image](https://www.dropbox.com/s/i6u36wc4gnhfhgv/19.png?raw=1)
+
+## Full details
+### Goals
+See deep learning goals
+
+### Data
+See deep learning data
+
+#### Features
+See deep learning features
+
+#### Labels
+See deep learning labels <br>
+Generating a range of label time horizons at once leverages KNN's ability to perform a similarity / distance lookup between the features once and then use the indices of the found neighbors to greatly speed up the testing of the other time horizons asynchronously without the need for further lookup.
+
+#### Train / validation / test sets
+See deep learning Train / validation / test sets <br>
+
+#### Hyperparameters
 
 
