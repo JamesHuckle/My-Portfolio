@@ -17,6 +17,20 @@
   * Global vectors for word representation (GloVe). Altered for candlesticks
 * **Technical analysis**:
   * Donchian channel (e.g n week high and low) and moving averages
+  
+## Exploitable phenomena (alpha)
+The following patterns show a propensity to be repeated across financial time series data and can therefore be successfully modeled by machine learning techniques.
+-	Mean reversion (auto correlation)
+-	Volatility compression and expansion
+-	Distressed market participants
+-	Institutional rebalancing (to the extent that is can be predictable)
+-	Algorithmic or human driven patterns of buying a selling
+-	Momentum
+-	Breakouts
+-	Trends
+-	Trading ranges
+-	Market reversals
+
 
 # Deep learning
 * Results
@@ -58,6 +72,7 @@ Correct inference of both the direction and magnitude of a future price movement
 Volatility is a latent variable which can be inferred from the duration of a price move, its direction, and its magnitude.
 
 ### Intuition behind DNN and LSTM for time series
+Need to fill in!
 
 ### Data
 Intial training/testing was conducted on a basket of major FX markets from 2003-2020. <br>
@@ -82,13 +97,19 @@ The temperal aspect of time series data is respected by splitting each instrumen
 The instruments are then merged in chronological order.
 
 ### Data hyperparameters
-**Dimensionality reduction** - PCA with varying degrees of components. <br>
+Need to fill in!
 
 ### Evaluation
 #### Trading costs
 A naive figure of one basis point has been added to account for the average transaction fee plus slippage experienced in the institutional market. Whilst transaction costs vary wildly depending on the traded instrument and the amount of negative slippage experienced varies for each trade, one basis point for liquid FX major pairs should be an acceptable benchmark of the round trip cost. <br>
-#### Reward function
-ROMAD (return over maximum drawdown). Higher is better. <br>
+#### Training and validation metrics
+Cross entropy loss and accuracy for classification <br>
+RMSE for regression <br>
+
+#### Test metrics
+Sharpe ratio - Industry standard for measuring risk adjusted trading performace. One criticism is that it penalizes positive return volatility as well a negative. <br>
+Sortino ratio - solves the main problem with the Sharpe ratio by only calculating downside volatility (standard deviation). <br>
+Return over maximum drawdown (ROMAD) - Measures the total return against the largest encountered drawdown. <br>
 
 ### Model
 
