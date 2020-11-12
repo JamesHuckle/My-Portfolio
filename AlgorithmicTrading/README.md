@@ -145,7 +145,7 @@ The method used for aggregating the performance across the folds includes the fo
 
 ### Model
 #### Ensemble
-Combining the predictions made with a combination of the number of sets of model hyperparameters. This should lead to a more robust overall prediction. There are a number of possible methods to implement an simple ensemble:
+Combining the predictions made with a combination of the number of sets of model hyperparameters. This should lead to a more robust overall prediction. There are a number of possible methods to implement an simple ensemble: <br>
 A.	Combine the predictions and threshold them, for example, there needs to be x% of buys before considering it a buy, otherwise there is no trade. <br>
 B.	Take the simple median or mean of the set of predictions. <br>
 C.	Give a direction only when both mean and median are in the same direction (vote), otherwise don’t trade. <br>
