@@ -80,6 +80,10 @@ The instrument are then merged in chronological order.
 
 # Machine learning 
 ## Results
+![image](https://www.dropbox.com/s/8q23od4vk003knx/15.png?raw=1)
 ![image](https://www.dropbox.com/s/0xxrux1lxlw5n71/16.jpg?raw=1)
+![image](https://www.dropbox.com/s/mjyernm1f5x7t64/17.PNG?raw=1)
+![image](https://www.dropbox.com/s/t5164tbz405l0mz/18.png?raw=1)
+![image](https://www.dropbox.com/s/i6u36wc4gnhfhgv/19.png?raw=1)
 
 
