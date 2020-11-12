@@ -112,12 +112,14 @@ Many of the details are the same for both the deep learning models and for the K
 
 ### Intuition behind KNN for time series
 Given a window of ten OHLC candlesticks representing a test input, we can find the closest five neighbors that match it’s pattern and then take the average future movements of the next bar of those five neighbors to make a prediction on the future movement of our test input. <br>
+
 Test input window of 10 candlesticks:  <br>
-Label = 0.001131 % = 1.1e-3 % <br>
 ![image](https://www.dropbox.com/s/ndasy1rlknvl8xj/24.png?raw=1) <br>
+Label = 0.001131 % = 1.1e-3 % <br>
+
 Five nearest neighbors: <br>
-Mean label = 0.00419 % = 4.2e-3 % <br>
 ![image](https://www.dropbox.com/s/jv8ifga315mlldh/23.png?raw=1) <br>
+Mean label = 0.00419 % = 4.2e-3 % <br>
 In this example he five nearest neighbors correctly predicted a positive next bar for our test example! KNN gives us the ability to find similar patterns that have occurred in the past to the one we face in the present. By averaging what has happened in the past we can attempt to predict the future movement.
 
 
