@@ -28,12 +28,13 @@
 ![image](https://www.dropbox.com/s/4ag7m7ta6hi8a15/5.PNG?raw=1)
 ![image](https://www.dropbox.com/s/fjh4r2vvuil0x06/6.PNG?raw=1)
 ## Learning curves
-Training data is 2003-2016 <br>
-Validation data is 2016-2018  <br>
+Training data is from 2003-2016 <br>
+Validation data is from 2016-2018  <br>
 The ideal learning curve has both training and validation loss trending lower whilst training and validation classification accuracy are increasing. Early stopping is utilized to stop training if the rate of change of the validation loss turns positive above a given threshold, or if the rate of change of the validation accuracy turns negative below a given threshold. The best epoch will be selected retrospectively and the model's weights reverted back to that point in time. 
 ![image](https://www.dropbox.com/s/q528ym8icevph4b/7.PNG?raw=1)
 ## Results
-An out of sample test dataset with data from 2019-2020 (not used during the validation proccess) is used to estimate out of sample variance. Results are represented cumulative percentage returns (percentage equity curve based at 0).
+Out of sample test data is from 2019-2020 (time period not used during the training or validation proccess) <br>
+Is used to estimate out of sample variancew with the results being represented as cumulative percentage returns (percentage equity curve, based at 0).
 ### Best 7 models
 ![image](https://www.dropbox.com/s/7w7jl2719yiexpt/8.PNG?raw=1)
 ![image](https://www.dropbox.com/s/foyoyhsh7e7q3dk/9.PNG?raw=1)
