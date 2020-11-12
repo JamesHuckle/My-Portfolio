@@ -1,5 +1,4 @@
-from tqdm import tqdm_notebook as tqdm
-from win10toast import ToastNotifier
+#from tqdm import tqdm_notebook as tqdm
 import matplotlib.pyplot as plt
 from datetime import datetime
 import yfinance as yf 
@@ -19,8 +18,8 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
 from scipy import interpolate
 
-sys.path.append(r'C:\Users\Jameshuckle\Dropbox\My-Portfolio\AlgorithmicTrading\utils')
-
+sys.path.append(f'{os.path.dirname(os.getcwd())}/utils')
+#sys.path.append(r'C:\Users\Jameshuckle\Dropbox\My-Portfolio\AlgorithmicTrading\utils')
 
 def save_sp500_tickers():
     resp = requests.get('http://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
@@ -64,7 +63,7 @@ def save_russell2000_tickers():
     return tickers.to_dict()['Name']
 
 def download_data_local_check(name, start, end, individual_tickers=None):
-    folder = r'C:\Users\Jameshuckle\Dropbox\My-Portfolio\AlgorithmicTrading\data'
+    folder = f'{os.path.dirname(os.getcwd())}/data'
     data_exist = f'{folder}\{name}_all_stock_data_{start}-{end}.csv'
     print(data_exist)
     if os.path.exists(data_exist):
@@ -90,18 +89,25 @@ def download_data_local_check(name, start, end, individual_tickers=None):
         all_stock_data.to_csv(data_exist)
     return all_stock_data
       
-def process_file(file_name):
-    folder = r'C:\Users\Jameshuckle\Dropbox\My-Portfolio\AlgorithmicTrading\data'
-    raw = pd.read_csv(f"{folder}/{file_name}")
-    time_col = list(raw.columns)[0]
-    raw.rename(columns={time_col:'Gmt time'}, inplace=True)
-    return raw 
+def process_file(file_name, save_file_name='', data_folder=None):
+    if data_folder:
+        folder = data_folder
+    else:
+        folder = f'{os.path.dirname(os.getcwd())}/data'
+    data = pd.read_csv(f"{folder}/{file_name}")
+    time_col = list(data.columns)[0]
+    data.rename(columns={time_col:'Gmt time'}, inplace=True)
+    data['Gmt time'] = pd.to_datetime(data['Gmt time'].str[:16], dayfirst=True)
+    data = data.set_index('Gmt time')
+    if save_file_name:
+        data.to_csv(f"{folder}/{save_file_name}")
+    return data 
     
 def prep_stock_data(all_stock_data, filter_start_date_tuple=None):
     stock_tickers = list(set(all_stock_data.columns.get_level_values(1)))
     loaded_files = {}
     print('num stocks:',len(stock_tickers))
-    for stock in tqdm(stock_tickers):
+    for stock in stock_tickers:
         columns = [(price, stock) for price in ['Open','High','Low','Close']]
         my_stock = all_stock_data[columns]
         my_stock = my_stock.droplevel(level=1, axis='columns')   
@@ -119,16 +125,23 @@ def prep_stock_data(all_stock_data, filter_start_date_tuple=None):
         loaded_files[stock] = my_stock
     return loaded_files
 
-def prep_fx_data(fx_files, filter_start_date_tuple=None):
+def load_single_file(file, data_folder=None):
+    if data_folder:
+        folder = data_folder
+    else:
+        folder = f'{os.path.dirname(os.getcwd())}/data'
+    data = pd.read_csv(f"{folder}/{file}", index_col='Gmt time')
+    data.index = pd.to_datetime(data.index)
+    return data
+
+def prep_fx_data(fx_files, filter_start_date_tuple=None, folder=None):
     loaded_files = {}
-    for fx_file in fx_files:
-        data = process_file(fx_file)
-        data['Gmt time'] = pd.to_datetime(data['Gmt time'].str[:16], dayfirst=True)
-        data = data.set_index('Gmt time')
+    for file in fx_files:
+        data = load_single_file(file)
         if filter_start_date_tuple:
             data = data[data.index > datetime(*filter_start_date_tuple)]
-        loaded_files[fx_file] = data
-        print(fx_file)
+        loaded_files[file] = data
+        print(file)
     return loaded_files
     
 def calc_sharpe(daily_pct_change):
@@ -215,26 +228,25 @@ def any_data(var, file_name=''):
     elif var.dataset_type == 'stock':
         if var.read_single_file:
             #print('Reading in single file:',file_name)
-            raw_data = process_file(file_name)
+            raw_data = load_single_file(file)
         else:
             #print('Indexing file from var.loaded_files:',file_name)
             raw_data = var.loaded_files[file_name]
         if var.resample:
             raw_data = raw_data.resample(var.resample).agg({'Open':'first','High':'max','Low':'min','Close':'last'})
         raw_data.dropna(inplace=True)
-        raw_data = raw_data[var.cols].to_numpy()
     else:
         raise Exception(f'datset of type {dataset} not recognised')
        
     return raw_data
 
-def categorical_classification(y, data, std_thresh):
-    y = y.copy()
-    pop_mean = data.mean()
-    pop_std = data.std() * std_thresh
-    large_neg = y < (pop_mean - pop_std)
-    large_pos = y > (pop_mean + pop_std)
+def categorical_classification(y_pct_diff, std_thresh):
+    pop_mean = y_pct_diff.mean()
+    pop_std = y_pct_diff.std() * std_thresh
+    large_neg = y_pct_diff < (pop_mean - pop_std)
+    large_pos = y_pct_diff > (pop_mean + pop_std)
     small_move = ~(large_neg | large_pos)
+    y = y_pct_diff.copy()
     y[large_neg] = 0
     y[small_move] = 1
     y[large_pos] = 2
@@ -246,30 +258,39 @@ def sliding_window(data, window=4, step=2):
     window_data = np.lib.stride_tricks.as_strided(data, strides=strides, shape=shape)[0::step]
     return window_data
 
-def create_window_data(raw_data, data, var): 
+def create_x_window_data(raw_data, data, y_len, var): 
     data_windows = sliding_window(data=data.flatten(), window=var.window * len(var.cols), step=len(var.cols)) 
     data_windows = data_windows.reshape(-1, var.window, len(var.cols))
+    x = data_windows[:y_len]
+    return x
     
+def create_y(raw_data, data, var):
     y_close_prices = raw_data[:, -1][var.window + (var.num_bars - 1):]
-    x = data_windows[:len(y_close_prices)]
-
     x_close_prices = raw_data[:, -1][var.window - 1: len(y_close_prices) + var.window - 1]
     y_pct_diff = (y_close_prices - x_close_prices) / x_close_prices
+    return y_pct_diff, y_close_prices, len(y_close_prices)
+ 
+def select_y(y_pct_diff, y_close_prices, var):
+    if var.multi_y:
+        if var.problem_type == 'regression':
+            y = y_close_prices
+            if var.data_percentage_diff_y:
+                y = y_pct_diff
+        else:
+            raise Exception('only implemented for regression, sorry')  
+    else:
+        if var.problem_type == 'regression':
+            y = y_close_prices
+            if var.data_percentage_diff_y:
+                y = y_pct_diff
+        elif var.problem_type == 'binary':
+            y = np.where(y_pct_diff < 0, 0, 1) # classification task
+        elif var.problem_type == 'category':
+            y = categorical_classification(y_pct_diff, std_thresh=var.std_thresh)
+    return y
 
-    if var.problem_type == 'regression':
-        y = y_close_prices
-        if var.data_percentage_diff_y:
-            y = y_pct_diff
-    elif var.problem_type == 'binary':
-        y = np.where(y_pct_diff < 0, 0, 1) # classification task
-    elif var.problem_type == 'category':
-        y = categorical_classification(y_pct_diff, data, std_thresh=0.29)
-    return x, y, y_pct_diff
     
-def create_window_data_multi_y(raw_data, data, var): 
-    data_windows = sliding_window(data=data.flatten(), window=var.window * len(var.cols), step=len(var.cols)) 
-    data_windows = data_windows.reshape(-1, var.window, len(var.cols))
-    
+def create_multi_y(raw_data, data, var): 
     all_y_close_prices = []
     all_y_pct_diff = []
     seq_len = []
@@ -286,15 +307,10 @@ def create_window_data_multi_y(raw_data, data, var):
     all_y_pct_diff = [seq[:min(seq_len)] for seq in all_y_pct_diff]
     all_y_close_prices = np.vstack(all_y_close_prices)
     all_y_pct_diff = np.vstack(all_y_pct_diff)
-    x = data_windows[:min(seq_len)]
     
-    if var.problem_type == 'regression':
-        y = all_y_close_prices
-        if var.data_percentage_diff_y:
-            y = all_y_pct_diff
-    else:
-        raise Exception('only implemented for regression, sorry')
-    return x, y, all_y_pct_diff
+    return all_y_pct_diff, all_y_close_prices, min(seq_len)
+    
+    
 
 def bool_argmax(bool_array):
     if bool_array.sum() == 0:
@@ -302,29 +318,76 @@ def bool_argmax(bool_array):
     else:
         return np.argmax(bool_array)
 
-def rp(price):
-    return round(price * 10**tick_size_decimals) / 10**tick_size_decimals
+# def calc_binary_stop_target(raw_data, bar_horizon=100, stop_size_pct=0.004, target_size_r_r=1):
+    # hit_neither_target_or_stop = 0
+    # hit_target_and_stop = 0
+    
+    # random_numbers = np.random.rand(raw_data.shape[0])
+    # random_win_thresh = 1 / (target_size_r_r + 1)
 
-def calc_binary_stop_target(raw_data, bar_horizon=100, stop_size_pct=0.004, target_size_r_r=1, tick_size_decimals=4):
+    # binary_classes = []
+    # for row_idx in range(raw_data.shape[0]):
+        # if row_idx == raw_data.shape[0] -1:
+            # binary_classes.append(0)
+            # continue
+            
+        # close_price = raw_data[row_idx, 3]
+        # child_order_distance = close_price * stop_size_pct
+        # target_price = close_price + child_order_distance
+        # stop_price = close_price - child_order_distance
+
+        # highs_price_range = raw_data[row_idx + 1:row_idx + bar_horizon, 1]
+        # lows_price_range = raw_data[row_idx + 1:row_idx + bar_horizon, 2]
+
+        # bool_target = highs_price_range >= target_price
+        # target_bar_idx = bool_argmax(bool_target)
+
+        # bool_stop = lows_price_range <= stop_price
+        # stop_bar_idx = bool_argmax(bool_stop)
+
+        # if target_bar_idx == -1 and stop_bar_idx == -1:
+            # hit_neither_target_or_stop += 1
+            # last_bar_close_price = raw_data[row_idx+1:row_idx+bar_horizon, 3][-1]
+            # if last_bar_close_price <= close_price:
+                # binary_class = 0
+            # else:
+                # binary_clas = 1
+        # elif target_bar_idx == -1:
+            # binary_class = 0
+        # elif stop_bar_idx == -1:
+            # binary_class = 1
+        # elif stop_bar_idx < target_bar_idx:
+            # binary_class = 0
+        # elif target_bar_idx < stop_bar_idx:
+            # binary_class = 1
+        # elif target_bar_idx == stop_bar_idx:
+            # hit_target_and_stop += 1
+            # random_win = random_numbers[row_idx] <= random_win_thresh
+            # binary_class = int(random_win)
+        # binary_classes.append(binary_class)
+    # print('hit_target_and_stop:', hit_target_and_stop, 'hit_neither_target_or_stop:', hit_neither_target_or_stop)
+    # return np.array(binary_classes[window-1:-1])
+       
+def calc_stop_target(raw_data, var, bar_horizon=100, bar_size_ma=100, stop_target_size=3):
+    roll_avg_bar_pct_size = rolling_bar_volatility(raw_data, ma=bar_size_ma)
+    
     hit_neither_target_or_stop = 0
     hit_target_and_stop = 0
     
-    random_numbers = np.random.rand(raw_data.shape[0])
-    random_win_thresh = 1/(target_size_r_r+1)
-
-    binary_classes = []
+    profit_pct = []
     for row_idx in range(raw_data.shape[0]):
         if row_idx == raw_data.shape[0] -1:
-            binary_classes.append(0)
+            profit_pct.append(0)
             continue
             
         close_price = raw_data[row_idx, 3]
-        child_order_distance = rp(close_price * stop_size_pct)
-        target_price = rp(close_price + child_order_distance)
-        stop_price = rp(close_price - child_order_distance)
+        stop_target_pct_size = (roll_avg_bar_pct_size[row_idx] * stop_target_size)
+        child_order_distance = close_price * stop_target_pct_size
+        target_price = close_price + child_order_distance
+        stop_price = close_price - child_order_distance
 
-        highs_price_range = raw_data[row_idx+1:row_idx+bar_horizon, 1]
-        lows_price_range = raw_data[row_idx+1:row_idx+bar_horizon, 2]
+        highs_price_range = raw_data[row_idx + 1:row_idx + bar_horizon, 1]
+        lows_price_range = raw_data[row_idx + 1:row_idx + bar_horizon, 2]
 
         bool_target = highs_price_range >= target_price
         target_bar_idx = bool_argmax(bool_target)
@@ -334,38 +397,37 @@ def calc_binary_stop_target(raw_data, bar_horizon=100, stop_size_pct=0.004, targ
 
         if target_bar_idx == -1 and stop_bar_idx == -1:
             hit_neither_target_or_stop += 1
-            last_bar_close_price = raw_data[row_idx+1:row_idx+bar_horizon, 3][-1]
-            if last_bar_close_price <= close_price:
-                binary_class = 0
-            else:
-                binary_clas = 1
+            last_bar_close_price = raw_data[row_idx + 1:row_idx + bar_horizon, 3][-1]
+            profit = (last_bar_close_price - close_price) / close_price
         elif target_bar_idx == -1:
-            binary_class = 0
+            profit = -stop_target_pct_size
         elif stop_bar_idx == -1:
-            binary_class = 1
+            profit = stop_target_pct_size
         elif stop_bar_idx < target_bar_idx:
-            binary_class = 0
+            profit = -stop_target_pct_size
         elif target_bar_idx < stop_bar_idx:
-            binary_class = 1
+            profit = stop_target_pct_size
         elif target_bar_idx == stop_bar_idx:
-            hit_target_and_stop +=1
-            random_win = random_numbers[row_idx] <= random_win_thresh
-            binary_class = int(random_win)
-        binary_classes.append(binary_class)
-    print('hit_target_and_stop:', hit_target_and_stop, 'hit_neither_target_or_stop:', hit_neither_target_or_stop)
-    return np.array(binary_classes[window-1:-1])
+            hit_target_and_stop += 1
+            profit = -1e-7
+        profit_pct.append(profit)
+    print('# hit_target_and_stop:', hit_target_and_stop,
+          '# hit_neither_target_or_stop:', hit_neither_target_or_stop)
+    return np.array(profit_pct[var.window - 1:-1])
 
-def display_stop_target(x, y, start=0, end=100, vline=33, hline=0.638):
-    plot_data = pd.DataFrame(x[:,-1])
+def display_stop_target(raw_data, y, y_pct_diff, var, start=0, end=100, vline=33, hline=0.638):
+    roll_avg_bar_pct_size = rolling_bar_volatility(raw_data, ma=var.bar_size_ma)[var.window -1:-1]
+    plot_data = pd.DataFrame(raw_data)[var.window -1:-1].reset_index(drop=True)
     plot_data.columns = 'open','high','low','close'
     plot_data['y'] = y
-    child_order_dist = plot_data['close'] * stop_size_pct
+    plot_data['y_pct_diff'] = y_pct_diff
+    child_order_dist = plot_data['close'] * (roll_avg_bar_pct_size * var.stop_target_size)
     plot_data['target'] = plot_data['close'] + child_order_dist
     plot_data['stop'] = plot_data['close'] - child_order_dist
 
     window_plot_data = plot_data[start:end] ## change me
     
-    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1]}, figsize=(20,12))
+    fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True, gridspec_kw={'height_ratios':[3,1,1]}, figsize=(20,12))
     plt.subplots_adjust(wspace=0, hspace=0)
     window_plot_data['high'].plot(c='grey', ax=ax[0])
     window_plot_data['low'].plot(c='grey', ax=ax[0])
@@ -373,9 +435,10 @@ def display_stop_target(x, y, start=0, end=100, vline=33, hline=0.638):
     window_plot_data['target'].plot(c='g', ax=ax[0])
     window_plot_data['stop'].plot(c='r', ax=ax[0])
     window_plot_data['y'].plot(c='k', ax=ax[1])
+    window_plot_data['y_pct_diff'].plot(c='k', ax=ax[2])
     
-    ax[0].axvline(vline, c='k', linestyle='dashed') ## change me
-    ax[0].axhline(hline, c='k', linestyle='dashed') ## change me
+    ax[0].axvline(vline, c='k', linestyle='dashed', alpha=0.3) ## change me
+    ax[0].axhline(hline, c='k', linestyle='dashed', alpha=0.3) ## change me
     plt.show()
     
 def open_diff(numpy_ohlc):
@@ -405,12 +468,6 @@ def dataset_diff(train_data_raw, test_data_raw, data_percentage_diff):
         test_data = test_data_raw
     return train_data, test_data
 
-def dataset_target_stop():
-    y = calc_binary_stop_target(train_data_raw, bar_horizon, stop_size_pct, target_size_r_r, tick_size_decimals)
-    y_test = calc_binary_stop_target(test_data_raw, bar_horizon, stop_size_pct, target_size_r_r, tick_size_decimals)
-    y_pct_diff = np.where(y == 0, -1, 1) * stop_size_pct
-    y_test_pct_diff = np.where(y_test == 0, -1, 1) * stop_size_pct
-    return y, y_test, y_pct_diff, y_test_pct_diff
 
 def fast_fourier_transform(X, n_coefs=10):
     n_samples, window = X.shape
@@ -440,26 +497,57 @@ def fast_fourier_transform(X, n_coefs=10):
    
 def create_dataset(file_name, var):
     raw_data = any_data(var, file_name=file_name)
-            
-    train_end_idx = int(len(raw_data) * var.train_split)
-    train_data_raw = raw_data[:train_end_idx]
-    test_data_raw = raw_data[train_end_idx:]
-    
+        
+    #expect if to have a datetime index. Use it to split then drop it (convert to numpy)
+    if isinstance(var.train_split, datetime):
+        if isinstance(raw_data, pd.DataFrame):
+            train_data_raw = raw_data[raw_data.index <= var.train_split].to_numpy()
+            test_data_raw = raw_data[raw_data.index > var.train_split].to_numpy()            
+            raw_data = raw_data[var.cols].to_numpy()
+        else:
+            raise(Exception('data is not of type dataframe and there cannot have a datetime index'))
+    else:
+        if isinstance(raw_data, pd.DataFrame):
+            raw_data = raw_data[var.cols].to_numpy()
+        train_end_idx = int(len(raw_data) * var.train_split)
+        train_data_raw = raw_data[:train_end_idx]
+        test_data_raw = raw_data[train_end_idx:]
+        
+    if len(train_data_raw) < 10 or len(test_data_raw) < 10:
+        print('There is not enough training or testing data after split, skipping')
+        return [[0] for i in range(8)]
+        
     # returns data untouched if data_percentage_diff is False
     train_data, test_data = dataset_diff(train_data_raw, test_data_raw, var.data_percentage_diff)
-            
-    create_window_func = create_window_data_multi_y if var.multi_y == True else create_window_data
-    x, y, y_pct_diff = create_window_func(train_data_raw, train_data, var)   
-    x_test, y_test, y_test_pct_diff = create_window_func(test_data_raw, test_data, var)
+
+    create_y_func = create_multi_y if var.multi_y == True else create_y
+    y_pct_diff, y_close_prices, y_len = create_y_func(train_data_raw, train_data, var) 
+    y_test_pct_diff, y_test_close_prices, y_len_test = create_y_func(test_data_raw, test_data, var) 
+    if var.norm_by_vol:
+        if (var.problem_type == 'regression' and 
+            var.data_percentage_diff_y == False and
+            var.data.percentage_diff == False):
+            raise(Exception('norm_by_vol is only currently supported for data_percentage_diff x,y == True'))
+        train_data_norm, y_norm = normalize_bar_volatility(train_data_raw[:y_len], y_pct_diff, ma=1000)
+        test_data_norm, y_test_norm = normalize_bar_volatility(test_data_raw[:y_len_test], y_test_pct_diff, ma=1000)
+        y = select_y(y_norm, y_close_prices, var)
+        y_test = select_y(y_test_norm, y_test_close_prices, var)
+        x = create_x_window_data(train_data_norm, train_data, y_len, var) 
+        x_test = create_x_window_data(test_data_norm, test_data, y_len_test, var) 
+    else:    
+        y = select_y(y_pct_diff, y_close_prices, var)
+        y_test = select_y(y_test_pct_diff, y_test_close_prices, var)
+        x = create_x_window_data(train_data_raw, train_data, y_len, var) 
+        x_test = create_x_window_data(test_data_raw, test_data, y_len_test, var)  
     
     if var.target_stop:
-        y = calc_binary_stop_target(train_data_raw, var.bar_horizon, var.stop_size_pct, var.target_size_r_r,
-                                    var.tick_size_decimals)
-        y_test = calc_binary_stop_target(test_data_raw, var.bar_horizon, var.stop_size_pct, 
-                                         var.target_size_r_r, var.tick_size_decimals)
-        y_pct_diff = np.where(y == 0, -1, 1) * var.stop_size_pct
-        y_test_pct_diff = np.where(y_test == 0, -1, 1) * var.stop_size_pct        
-    
+        y_pct_diff = calc_stop_target(train_data_raw, var, var.bar_horizon, var.bar_size_ma,
+                                      var.stop_target_size)
+        y_test_pct_diff = calc_stop_target(test_data_raw, var, var.bar_horizon, var.bar_size_ma,
+                                           var.stop_target_size) 
+        y = np.where(y_pct_diff > 0, 1, 0)
+        y_test = np.where(y_test_pct_diff > 0, 1, 0)  
+  
     x_shape = x.shape
     x_test_shape = x_test.shape
     
@@ -475,11 +563,11 @@ def create_dataset(file_name, var):
         x_test = x_test.reshape(x_test_shape)
         if var.problem_type == 'regression':
             y_scaler = StandardScaler()
-            y = y_scaler.fit_transform(np.expand_dims(y, axis=1))
-            y_test = y_scaler.transform(np.expand_dims(y_test, axis=1))
+            y = y_scaler.fit_transform(np.expand_dims(y, axis=1)).flatten()
+            y_test = y_scaler.transform(np.expand_dims(y_test, axis=1)).flatten()
             
     if var.pca_features:
-        pca = PCA(n_components=pca_features*len(var.cols))
+        pca = PCA(n_components=var.pca_features*len(var.cols))
         x = pca.fit_transform(x.reshape(x_shape[0],-1))
         x = x.reshape(x_shape[0], -1, x_shape[2])
         x_test = pca.transform(x_test.reshape(x_test_shape[0], -1))
@@ -523,23 +611,30 @@ class algo_variables():
     pass
 
 
-def add_dates(x, y, dates, target_cols):
+def add_dates(x, y, y_pct, dates, target_cols):
     x = x.reshape(x.shape[0],-1)
-    x, y = pd.DataFrame(x), pd.DataFrame(y.T)
+    x, y, y_pct = pd.DataFrame(x), pd.DataFrame(y.T), pd.DataFrame(y_pct)
     y.columns = target_cols 
     x.index = dates
     y.index = dates
-    return x, y
+    y_pct.index = dates
+    return x, y, y_pct
     
-    
-def normalize_bar_volatility(x, y, raw_data, ma=100):
-    bar_high_low = raw_data[1] - raw_data[2]
-    bar_high_low_pct_diff = bar_high_low / raw_data[1]
-    bar_high_low_pct_diff.fillna(0, inplace=True)
-    roll_avg_diff = bar_high_low_pct_diff.rolling(window=ma, min_periods=0).mean().reset_index(drop=True)
-    x = x.div(roll_avg_diff, axis=0)
-    y = y.div(roll_avg_diff, axis=0)
-    return x, y
+def rolling_bar_volatility(raw_data, ma=100):
+    bar_high_low = raw_data[:,1] - raw_data[:,2]
+    bar_high_low_pct_diff = pd.Series(bar_high_low / raw_data[:,1])
+    zeros = bar_high_low_pct_diff == 0
+    bar_high_low_pct_diff[zeros] = np.nan
+    bar_high_low_pct_diff.bfill(inplace=True)
+    roll_avg_bar_pct_size = bar_high_low_pct_diff.rolling(window=ma, min_periods=0).mean().reset_index(drop=True)
+    roll_avg_bar_pct_size = np.array(roll_avg_bar_pct_size)
+    return roll_avg_bar_pct_size
+  
+def normalize_bar_volatility(raw_data, y, ma=100):
+    roll_avg_bar_pct_size = rolling_bar_volatility(raw_data, ma=100)
+    raw_data = np.divide(raw_data, roll_avg_bar_pct_size.reshape(-1, 1))
+    y = np.divide(y, roll_avg_bar_pct_size)
+    return raw_data, y
 
 
 def final_dataset(var):
@@ -547,6 +642,8 @@ def final_dataset(var):
     all_y = []
     all_x_test = []
     all_y_test = []
+    all_y_pct_diff = []
+    all_y_test_pct_diff = []
     all_train_raw = []
     all_test_raw = []
     
@@ -555,9 +652,11 @@ def final_dataset(var):
     else:
         target_cols = [f'target_bars_{var.num_bars}']
         
-    for file_name in tqdm(list(var.loaded_files.keys())):
+    for file_name in list(var.loaded_files.keys()):
         (x, y, x_test, y_test, y_pct_diff, y_test_pct_diff,
-         train_data_raw, test_data_raw) = create_dataset(file_name=file_name, var=var)
+        train_data_raw, test_data_raw) = create_dataset(file_name=file_name, var=var)
+        if len(x) <= 1:
+           continue
 
         loaded_data = var.loaded_files[file_name]
         if var.resample:
@@ -567,13 +666,15 @@ def final_dataset(var):
         train_dates = dates[:len(x)]
         test_dates = dates[len(x):len(x)+len(x_test)]
         
-        x, y = add_dates(x, y, train_dates, target_cols)
+        x, y, y_pct_diff = add_dates(x, y, y_pct_diff, train_dates, target_cols)
         all_x.append(x)
         all_y.append(y)
+        all_y_pct_diff.append(y_pct_diff)
         
-        x_test, y_test = add_dates(x_test, y_test, test_dates, target_cols)
+        x_test, y_test, y_test_pct_diff = add_dates(x_test, y_test, y_test_pct_diff, test_dates, target_cols)
         all_x_test.append(x_test)
         all_y_test.append(y_test)
+        all_y_test_pct_diff.append(y_test_pct_diff)
         
         train_data_raw, test_data_raw = pd.DataFrame(train_data_raw), pd.DataFrame(test_data_raw)
         train_raw_dates = dates[:len(train_data_raw)]
@@ -586,21 +687,19 @@ def final_dataset(var):
     # Sort data chronologically so the same dates of different instruments are together.
     x = pd.concat(all_x, axis=0).sort_index().reset_index(drop=True)
     y = pd.concat(all_y, axis=0).sort_index().reset_index(drop=True)
+    y_pct_diff = pd.concat(all_y_pct_diff, axis=0).sort_index().reset_index(drop=True)
     x_test = pd.concat(all_x_test, axis=0).sort_index().reset_index(drop=True)
     y_test = pd.concat(all_y_test, axis=0).sort_index().reset_index(drop=True)
+    y_test_pct_diff = pd.concat(all_y_test_pct_diff, axis=0).sort_index().reset_index(drop=True)
 
     test_data_raw = pd.concat(all_test_raw, axis=0).sort_index()  
     train_data_raw = pd.concat(all_train_raw, axis=0).sort_index()
     
-    train_data = pd.concat([x,y], axis=1)
-    test_data = pd.concat([x_test,y_test], axis=1)
+    train_data = pd.concat([x, y], axis=1)
+    test_data = pd.concat([x_test, y_test], axis=1)
     all_data = pd.concat([train_data, test_data], axis=0).reset_index(drop=True)
     
-    if var.norm_by_vol:
-        x, y = normalize_bar_volatility(x, y, train_data_raw[:len(train_data)], ma=1000)
-        x_test, y_test = normalize_bar_volatility(x_test, y_test, test_data_raw[:len(test_data)], ma=1000)
-    
-    return x, y, x_test, y_test, train_data_raw, test_data_raw, all_data   
+    return x, y, x_test, y_test, y_pct_diff, y_test_pct_diff, train_data_raw, test_data_raw, all_data   
     
     
 def fit_data_for_knn(loaded_files, window, n_candles, percentage_diff='close_diff', close_only=False,
@@ -624,23 +723,88 @@ def fit_data_for_knn(loaded_files, window, n_candles, percentage_diff='close_dif
     var.pca_features = False
     var.standardize = False
     
-    x, y, x_test, y_test, train_data_raw, test_data_raw, all_data = final_dataset(var)
+    x, y, x_test, y_test, y_pct_diff, y_test_pct_diff, train_data_raw, test_data_raw, all_data = final_dataset(var)
     return x, y, x_test, y_test, train_data_raw, test_data_raw, all_data    
     
-def deep_learning_dataset(var, train_validation=0):
+def deep_learning_dataset(var, train_validation=0, return_df=True):
     var.multi_y = False
-    x, y, x_test, y_test, train_data_raw, test_data_raw, all_data = final_dataset(var)
+    x, y, x_test, y_test, y_pct_diff, y_test_pct_diff, train_data_raw, test_data_raw, all_data = final_dataset(var)
     if train_validation:
         print('train_validation:', train_validation)
         # only uses train data to make validation (test) data.
         train_idx = int(len(x) * train_validation)
         x_train = x[:train_idx]
         y_train = y[:train_idx]
+        y_pct_diff = y_pct_diff[:train_idx]
         x_valid = x[train_idx:]
         y_valid = y[train_idx:]
-        return x_train, y_train, x_valid, y_valid, train_data_raw, test_data_raw, all_data  
+        y_test_pct_diff = y_test_pct_diff[train_idx:]
+        
+        return_data = [x_train, y_train, x_valid, y_valid,  y_pct_diff, y_test_pct_diff, train_data_raw,
+                       test_data_raw, all_data]
     else:    
-        return x, y, x_test, y_test, train_data_raw, test_data_raw, all_data    
+        return_data = [x, y, x_test, y_test, y_pct_diff, y_test_pct_diff, train_data_raw, test_data_raw, all_data]
+    if return_df == False:
+        return_data = [data.to_numpy() for data in return_data]
+    return return_data        
+    
+    
+def open_diff(numpy_ohlc):
+    diff_data_numpy = np.zeros(numpy_ohlc.shape)
+    # open vs close
+    diff_data_numpy[1:,0] = (numpy_ohlc[1:,0] - numpy_ohlc[:-1,3]) / numpy_ohlc[:-1,3]
+    # high, low, close vs open
+    diff_data_numpy[:,[1,2,3]] = ((numpy_ohlc[:,[1,2,3]].T - numpy_ohlc[:,0]) / numpy_ohlc[:,0]).T 
+    return diff_data_numpy
+
+def remove_dates(raw_data):
+    dates = raw_data.index
+    raw_data = raw_data.reset_index(drop=True)
+    return raw_data, dates
+
+def diff(raw_data):
+    diff_data = open_diff(raw_data)
+    diff_data = pd.DataFrame(diff_data, columns=['open_diff','high_diff','low_diff','close_diff'])
+    return diff_data
+
+def scale(diff_data, train=True):
+    if train:
+        global data_scaler
+        data_scaler = StandardScaler()
+        scale_data = data_scaler.fit_transform(diff_data)
+    else:
+        scale_data = data_scaler.transform(diff_data)
+    scale_data = pd.DataFrame(scale_data, columns=['open_scale','high_scale','low_scale','close_scale'])
+    return scale_data
+
+def scale_bins(scale_data, num_bins=5):
+    cols = ['open_scale','high_scale','low_scale','close_scale']
+    for col in cols:
+        scale_data[f'{col}_bins'] = pd.cut(scale_data[col], num_bins, labels=False)
+    for col in cols:
+        scale_data[f'{col}_bins_label'] = pd.cut(scale_data[col], num_bins)
+        
+    bin_cols = [f'{col}_bins' for col in cols]
+    scale_data[bin_cols] = scale_data[bin_cols].astype(int).astype(str)
+    scale_data['label'] = scale_data[bin_cols].agg(''.join, axis=1)
+    return scale_data
+
+def create_candlestick_corpus(raw_data, train=True, pandas_with_dates=True):
+    if pandas_with_dates:
+        raw_data, dates = remove_dates(raw_data)
+        diff_data = diff(raw_data.to_numpy())
+    else:
+        diff_data = diff(raw_data)
+        raw_data = pd.DataFrame(raw_data)
+        raw_data.columns = ['Open','High','Low','Close']
+    scale_data = scale(diff_data, train=train)
+    scale_data_bins = scale_bins(scale_data, num_bins=[-np.inf, -1.5, -1, -0.6, -0.1, 0.1, 0.6, 1, 1.5, np.inf])
+    data = pd.concat([raw_data, scale_data_bins['label']], axis=1)
+    if pandas_with_dates:
+        data.index = dates
+    else:
+        data = data.to_numpy()
+    return data
     
     
 # ### FX data #######
