@@ -28,41 +28,41 @@ sweep_config = {
         'goal': 'minimize',
     },
     'parameters': {
-#         'units': {'values': [5, 10, 20, 50, 100, 200]},
-#         'layers': {'values': [3, 5, 7, 10, 20, 40, 60]},
-#         'epochs': {'values': [150]},
-#         'window': {'values': [5, 7, 10, 15, 20, 30, 50, 100]},
-#         'num_bars': {'values': [5, 7, 10, 15, 20, 30, 50, 100]},
-#         'norm_by_vol': {'values': [False, False, False, False, True]},
-#         'resample': {'values': ['1D']},
-#         'close_only': {'values': [False, False, False, False, True]},
-#         'target_stop': {'values': [False, False, False, False, True]},
-#         'model_arch': {'values': ['lstm','lstm','dnn']},
-#         'l1_reg': {'values': [0, 0, 0, 0, 1e-8, 1e-7, 1e-6]},
-#         'l2_reg': {'values': [0, 0, 0, 0, 0, 1e-7, 1e-6, 1e-5]},
-#         'drop_rate': {'values': [0, 0, 0, 0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.4]},
-#         'lr': {'values': [1e-3, 1e-4, 1e-5]},
-#         'problem_type': {'values': ['binary', 'binary', 'binary', 'category', 'regression']},
-#         'standardize': {'values': ['min_max', 'min_max','std', 'std', False]},
-#         'pca_features': {'values': [True, False, False, False, False]},
-####  
+        'units': {'values': [5, 10, 20, 50, 100, 200]},
+        'layers': {'values': [3, 5, 7, 10, 20, 40, 60]},
         'epochs': {'values': [150]},
-        'close_only': {'values': [False]},       
-        'drop_rate': {'values': [0.2]},
-        'l1_reg': {'values': [1e-8]},
-        'l2_reg': {'values': [0]},
-        'layers': {'values': [3]},
-        'lr': {'values': [1e-3]},
-        'model_arch': {'values': ['lstm']}, #set lstm_layers size in code if 'lstm'
-        'norm_by_vol': {'values': [False]},
-        'num_bars': {'values': [100]},  
-        'pca_features': {'values': [False]}, #set pca_fraction size in code if TRUE
-        'problem_type': {'values': ['category']}, #set std_thresh size in code if 'category'
-        'resample': {'values': ['1H']},
-        'standardize': {'values': ['min_max']},
-        'target_stop': {'values': [False]},  #set stop_target size in code if True
-        'units': {'values': [10]},
-        'window': {'values': [5]},
+        'window': {'values': [5, 7, 10, 15, 20, 30, 50, 100]},
+        'num_bars': {'values': [5, 7, 10, 15, 20, 30, 50, 100]},
+        'norm_by_vol': {'values': [False, False, False, False, True]},
+        'resample': {'values': ['1D']},
+        'close_only': {'values': [False, False, False, False, True]},
+        'target_stop': {'values': [False, False, False, False, True]},
+        'model_arch': {'values': ['lstm','lstm','dnn']},
+        'l1_reg': {'values': [0, 0, 0, 0, 1e-8, 1e-7, 1e-6]},
+        'l2_reg': {'values': [0, 0, 0, 0, 0, 1e-7, 1e-6, 1e-5]},
+        'drop_rate': {'values': [0, 0, 0, 0, 0.1, 0.1, 0.1, 0.2, 0.3, 0.4]},
+        'lr': {'values': [1e-3, 1e-4, 1e-5]},
+        'problem_type': {'values': ['binary', 'binary', 'binary', 'category', 'regression']},
+        'standardize': {'values': ['min_max', 'min_max','std', 'std', False]},
+        'pca_features': {'values': [True, False, False, False, False]},
+####  
+#         'epochs': {'values': [150]},
+#         'close_only': {'values': [False]},       
+#         'drop_rate': {'values': [0.2]},
+#         'l1_reg': {'values': [1e-8]},
+#         'l2_reg': {'values': [0]},
+#         'layers': {'values': [3]},
+#         'lr': {'values': [1e-3]},
+#         'model_arch': {'values': ['lstm']}, #set lstm_layers size in code if 'lstm'
+#         'norm_by_vol': {'values': [False]},
+#         'num_bars': {'values': [100]},  
+#         'pca_features': {'values': [False]}, #set pca_fraction size in code if TRUE
+#         'problem_type': {'values': ['category']}, #set std_thresh size in code if 'category'
+#         'resample': {'values': ['1H']},
+#         'standardize': {'values': ['min_max']},
+#         'target_stop': {'values': [False]},  #set stop_target size in code if True
+#         'units': {'values': [10]},
+#         'window': {'values': [5]},
     }
 }
 
@@ -70,7 +70,7 @@ sweep_config = {
 # sweep_id = wandb.sweep(sweep_config, project='timeseries-4')
 
 # +
-data_source = 'fx' # 'fx', 'stock'
+data_source = 'stock' # 'fx', 'stock'
 
 if data_source == 'fx':
     ### FX data #######
@@ -334,7 +334,7 @@ def train(test=False):
         # plt.show()
         
         daily_pct_change = all_returns_final['profit'].resample('1D').sum()
-        romad = calc_romad(daily_pct_change, filter_large_trades=0.5, yearly_agg=np.median,
+        romad = calc_romad(daily_pct_change, filter_large_trades=False, yearly_agg=np.median,
                            plot=False)
         
         equity_curve = all_returns_final['returns'].reset_index(drop=True).values.tolist()
@@ -346,7 +346,7 @@ def train(test=False):
     all_raw_final = pd.concat(all_raw, axis=1)
     all_raw_final.drop(suspect_stocks, axis='columns', inplace=True) 
     raw_daily_pct_change = all_raw_final.sum(axis=1).resample('1D').sum()
-    romad_raw = calc_romad(raw_daily_pct_change, filter_large_trades=0.5, yearly_agg=np.median,
+    romad_raw = calc_romad(raw_daily_pct_change, filter_large_trades=False, yearly_agg=np.median,
                            plot=False)
     raw_equity = raw_daily_pct_change.cumsum().reset_index(drop=True).values.tolist()
         

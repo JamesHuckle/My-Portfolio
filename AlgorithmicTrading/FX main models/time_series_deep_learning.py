@@ -539,9 +539,8 @@ def del_unneeded_checkpoints(checkpoint_path_base, all_history, metric):
 #     ax[2][1].legend(['train'])
 
 
-# %%
-del_unneeded_checkpoints(checkpoint_path_base, all_history, metric)
-
+# %% tags=["active-ipynb"]
+# del_unneeded_checkpoints(checkpoint_path_base, all_history, metric)
 
 # %%
 def explore_epoch(metric, man_epoch_idx, man_val_metric, checkpoint_path_base, all_history, model):
