@@ -12,9 +12,9 @@
 * **Signal processing**:
   * Fast Fourier transform (FFT)  
 * **Image processing**:
-  * Convert time series into a image - Gramian angular field (GAF) - for CNN
+  * Convert time series into a Gramian angular field (GAF) image to improve inference
 * **Transfer learning**:
-  * Use pre-trained EnceptionV3 network (CNN) to process GAF 2D images.
+  * Use pre-trained EnceptionV3 network (CNN) to process GAF 2D images
 * **Unsupervised embeddings**:
   * Global vectors for word representation (GloVe). Altered for candlesticks
 * **Technical analysis**:
