@@ -5,7 +5,7 @@
   * Recurrent neural networks (RNN, GRU, LSTM)
 * **Machine learning**:
   * K-nearest neighbors (KNN)
-  * Random forest
+  * Random forest and XGBoost
 * **Reinforcement learning**:
   * Deep Q learning (DQN, DDQN)
   * Proximal policy optimization (PPO)

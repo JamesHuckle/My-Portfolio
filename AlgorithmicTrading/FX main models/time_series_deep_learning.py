@@ -39,6 +39,7 @@ import gc
 
 # %%
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import tensorflow_datasets as tfds
 from tensorflow.keras import layers
 from tensorflow.keras import initializers

@@ -64,9 +64,9 @@ def save_russell2000_tickers():
 
 def download_data_local_check(name, start, end, individual_tickers=None):
     folder = f'{os.path.dirname(os.getcwd())}/data'
-    data_exist = f'{folder}\{name}_all_stock_data_{start}-{end}.csv'
-    print(data_exist)
-    if os.path.exists(data_exist):
+    data_exist = f'{folder}/{name}_all_stock_data_{start}-{end}.csv'
+    print('data already saved', data_exist)
+    if os.path.exists(data_exist) and not individual_tickers:
         all_stock_data = pd.read_csv(data_exist,header=[0,1])
         all_stock_data = all_stock_data[1:]
         all_stock_data.set_index(all_stock_data['Unnamed: 0_level_0']['Unnamed: 0_level_1'], drop=True, inplace=True)
@@ -75,7 +75,7 @@ def download_data_local_check(name, start, end, individual_tickers=None):
         all_stock_data.drop(('Unnamed: 0_level_0','Unnamed: 0_level_1'), axis='columns', inplace=True)
     else:
         if individual_tickers:
-            pass
+            tickers = individual_tickers
         elif name == 'SP500':
             tickers = sorted(list(save_sp500_tickers().keys()))
         elif name == 'RUSSELL2000':
@@ -318,55 +318,6 @@ def bool_argmax(bool_array):
     else:
         return np.argmax(bool_array)
 
-# def calc_binary_stop_target(raw_data, bar_horizon=100, stop_size_pct=0.004, target_size_r_r=1):
-    # hit_neither_target_or_stop = 0
-    # hit_target_and_stop = 0
-    
-    # random_numbers = np.random.rand(raw_data.shape[0])
-    # random_win_thresh = 1 / (target_size_r_r + 1)
-
-    # binary_classes = []
-    # for row_idx in range(raw_data.shape[0]):
-        # if row_idx == raw_data.shape[0] -1:
-            # binary_classes.append(0)
-            # continue
-            
-        # close_price = raw_data[row_idx, 3]
-        # child_order_distance = close_price * stop_size_pct
-        # target_price = close_price + child_order_distance
-        # stop_price = close_price - child_order_distance
-
-        # highs_price_range = raw_data[row_idx + 1:row_idx + bar_horizon, 1]
-        # lows_price_range = raw_data[row_idx + 1:row_idx + bar_horizon, 2]
-
-        # bool_target = highs_price_range >= target_price
-        # target_bar_idx = bool_argmax(bool_target)
-
-        # bool_stop = lows_price_range <= stop_price
-        # stop_bar_idx = bool_argmax(bool_stop)
-
-        # if target_bar_idx == -1 and stop_bar_idx == -1:
-            # hit_neither_target_or_stop += 1
-            # last_bar_close_price = raw_data[row_idx+1:row_idx+bar_horizon, 3][-1]
-            # if last_bar_close_price <= close_price:
-                # binary_class = 0
-            # else:
-                # binary_clas = 1
-        # elif target_bar_idx == -1:
-            # binary_class = 0
-        # elif stop_bar_idx == -1:
-            # binary_class = 1
-        # elif stop_bar_idx < target_bar_idx:
-            # binary_class = 0
-        # elif target_bar_idx < stop_bar_idx:
-            # binary_class = 1
-        # elif target_bar_idx == stop_bar_idx:
-            # hit_target_and_stop += 1
-            # random_win = random_numbers[row_idx] <= random_win_thresh
-            # binary_class = int(random_win)
-        # binary_classes.append(binary_class)
-    # print('hit_target_and_stop:', hit_target_and_stop, 'hit_neither_target_or_stop:', hit_neither_target_or_stop)
-    # return np.array(binary_classes[window-1:-1])
        
 def calc_stop_target(raw_data, var, bar_horizon=100, bar_size_ma=100, stop_target_size=3):
     roll_avg_bar_pct_size = rolling_bar_volatility(raw_data, ma=bar_size_ma)

@@ -17,6 +17,7 @@ import wandb
 from wandb.keras import WandbCallback
 import numpy as np
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from time_series_deep_learning import *
 
 sweep_config = {
