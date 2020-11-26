@@ -1,31 +1,28 @@
-
-import cbpro
+#import cbpro
 import json
+import ast
 from requests import Request, Session
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 import matplotlib.pyplot as plt
 import pprint
 pp = pprint.PrettyPrinter().pprint
 
-demo_api_key = '25d2cf9e9f368905530577fa8638ca5c'
-demo_api_secret = 'Be5Q3kCa9QF4AjXLwIHzGMVq71LsmBrDR2AxmH7NY8tagJB04wuu8VwTW+Alk8krFSl9vy4UqKpZ4mfMYxzH4Q=='
-demo_passphrase = 'aushwnj25gv'
-demo_url = 'https://api-public.sandbox.pro.coinbase.com'
-
-api_key = '8086b138f289417d30506e8f926e20fc'
-api_secret = 'rusb4uW+RFSYqPS3SvmS5RF7Q6IbJf5Ui1UgFmwCLb/jWSERrE0Q8okl3Bvoww+a4j5RL2nGa1CaR2uIuH9ZDA=='
-passphrase = 'DataScience1990'
+info_file = open('info.txt')
+info = ast.literal_eval(info_file.read())
+info
 
 ###################
 demo = False
 ###################
 
 if demo == False:   
-    auth_client = cbpro.AuthenticatedClient(api_key, api_secret, passphrase)#, demo_url)
+    auth_client = cbpro.AuthenticatedClient(info['api_key'], info['api_secret'],
+                                            info['passphrase'])#, demo_url)
 else:
-    auth_client = cbpro.AuthenticatedClient(demo_api_key, demo_api_secret, demo_passphrase, demo_url)
+    auth_client = cbpro.AuthenticatedClient(info['demo_api_key'], info['demo_api_secret'], 
+                                            info['demo_passphrase'], info['demo_url'])
 
-####################
+# ###################
 
 def get_coin_market_cap():
     ## Crypto Assets (basket)
@@ -55,7 +52,7 @@ def get_coin_market_cap():
     market_cap = {curr['symbol']:{'full_name':curr['slug'],'market_cap':curr['quote']['USD']['market_cap'],'circulating':curr['circulating_supply']} for curr in data['data']}
     return market_cap
 
-## Test ##
+# # Test ##
 # market_cap = get_coin_market_cap()
 
 
@@ -69,7 +66,7 @@ def get_coinbase_coins():
     #print(coinbase_coins, len(coinbase_coins))
     return coinbase_coins
 
-## Test ##
+# # Test ##
 # coinbase_coins = get_coinbase_coins()
 
 
@@ -86,7 +83,7 @@ def combine_cmc_coinbase():
             print('cannot find coinbase coin',cmc_coin)
     return coinbase_coins_market_cap
 
-## Test ##
+# # Test ##
 # coinbase_coins_market_cap = combine_cmc_coinbase()
 
 
@@ -96,8 +93,8 @@ def top_market_cap_coins(number_coins):
     top_coins = list(coinbase_coins_market_cap.keys())[:number_coins]
     coinbase_coins_market_cap = {coin:values for coin,values in coinbase_coins_market_cap.items() if coin in top_coins}
     return coinbase_coins_market_cap
- 
-## Test ## 
+
+# # Test ## 
 # number_coins = 4
 # coinbase_coins_market_cap = top_market_cap_coins(number_coins)
 
@@ -119,7 +116,7 @@ def init_portfolio_weighting(min_weight, number_coins):
         coinbase_coins_market_cap[coin]['weighting'] = weighting
     return coinbase_coins_market_cap, low_weight_coins, added_weight
 
-## Test ##
+# # Test ##
 # number_coins = 4
 # min_weight = 0.25
 # coinbase_coins_market_cap, low_weight_coins, added_weight = init_portfolio_weighting(min_weight, number_coins)
@@ -131,7 +128,7 @@ def ascending_weighting():
     reverse_coinbase_coins_market_cap = {coin:coinbase_coins_market_cap[coin] for coin in reverse_coins}
     return reverse_coinbase_coins_market_cap
 
-## Test ##
+# # Test ##
 # number_coins = 4
 # min_weight = 0.25
 # coinbase_coins_market_cap, low_weight_coins, added_weight = init_portfolio_weighting(min_weight, number_coins)
@@ -160,7 +157,7 @@ def set_portfolio_weighting():
     print(total_weight,'should equal 1')
     return coinbase_coins_market_cap
 
-## Test ##
+# # Test ##
 # number_coins = 4
 # min_weight = 0.25
 # coinbase_coins_market_cap, low_weight_coins, added_weight = init_portfolio_weighting(min_weight, number_coins)
@@ -176,7 +173,7 @@ def plot_weighting():
     plt.bar(range(len(coins)),caps,tick_label=coins)
     plt.show()
 
-## Test ##
+# # Test ##
 # number_coins = 4
 # min_weight = 0.25
 # coinbase_coins_market_cap, low_weight_coins, added_weight = init_portfolio_weighting(min_weight, number_coins)
@@ -192,7 +189,7 @@ def deposit_account(curr, percentage_under_algo_management):
     print('investment_capital',investment_capital)
     return investment_capital
 
-## Test ##
+# # Test ##
 # deposit_currency = 'GBP'
 # percentage_under_algo_management = 0.95
 # investment_capital = deposit_account(deposit_currency, percentage_under_algo_management)
@@ -222,7 +219,7 @@ def get_coinbase_currencies():
     coinbase_currencies = {pair['id']:pair for pair in coinbase_currencies}
     return coinbase_currencies
 
-## Test ##
+# # Test ##
 # coinbase_currencies = get_coinbase_currencies()
 
 
@@ -231,7 +228,7 @@ def get_coinbase_products():
     coinbase_products = {pair['id']:pair for pair in coinbase_products}
     return coinbase_products
 
-## Test ##
+# # Test ##
 # coinbase_products = get_coinbase_products()
 
 
@@ -248,7 +245,7 @@ def find_rounding (str_decimal):
         rounding = len(exponent[1])
     return rounding
 
-## Test ##       
+# # Test ##       
 # print(find_rounding('0.0001'))
 
 
@@ -299,7 +296,7 @@ def calculate_transacations_queue():
         total_num_coins-=1            
     return transaction_queue, skip_coins
 
-## Test ##
+# # Test ##
 # number_coins = 4
 # min_weight = 0.25
 # coinbase_coins_market_cap, low_weight_coins, added_weight = init_portfolio_weighting(min_weight, number_coins)
@@ -354,8 +351,8 @@ def send_coinbase_orders():
         ### send orders ##    
         #order = order_func(price = price, size= trade['size'],order_type= 'market',product_id= trade['pair'])
         #    print(order)
-    
-## Test ##
+
+# # Test ##
 # number_coins = 4
 # min_weight = 0.25
 # coinbase_coins_market_cap, low_weight_coins, added_weight = init_portfolio_weighting(min_weight, number_coins)
@@ -377,10 +374,10 @@ def send_coinbase_orders():
 # send_coinbase_orders() 
 
 
-## test trades
+# # test trades
 
-#auth_client.buy(price = 0.00005445, size = 40, order_type = 'limit',product_id = 'XRP-BTC')
-#auth_client.buy(price = 0.000056, size = 40, order_type = 'limit',product_id = 'XRP-BTC')
+# auth_client.buy(price = 0.00005445, size = 40, order_type = 'limit',product_id = 'XRP-BTC')
+# auth_client.buy(price = 0.000056, size = 40, order_type = 'limit',product_id = 'XRP-BTC')
 
 
 #def portfolio_value_in_base(base_curr):
