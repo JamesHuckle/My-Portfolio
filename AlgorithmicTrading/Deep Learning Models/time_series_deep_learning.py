@@ -39,7 +39,7 @@ import gc
 
 # %%
 import tensorflow as tf
-tf.compat.v1.disable_eager_execution()
+#tf.compat.v1.disable_eager_execution()
 import tensorflow_datasets as tfds
 from tensorflow.keras import layers
 from tensorflow.keras import initializers
@@ -268,16 +268,16 @@ def lstm_model_sweep(l1_reg, l2_reg, drop_rate, input_len, output_layer, layer_k
 # var.data_percentage_diff = 'close_diff' # False, 'close_diff', 'ohlc_diff', 'open_diff'
 # var.data_percentage_diff_y = True
 # var.train_split = datetime(2019,1,1) #0.9, datetime(2018,1,1)
-# var.resample = '1D' # None '1D', '4H', '1W'
+# var.resample = None # None '1D', '4H', '1W'
 # var.read_single_file = None #all_files[3] #None
 # var.loaded_files = loaded_files
 #
-# var.num_bars = 100 # prediction horizon
+# var.num_bars = 30 # prediction horizon
 # var.problem_type = 'binary' #'regression' 'binary' 'category'
 # if var.problem_type == 'category':
 #     var.std_thresh = 0.5 # to determine a positive, negative or flat trade
 # var.dataset_type = 'stock' #'wave', 'random', 'stock', 'monte_carlo'
-# var.close_only = False
+# var.close_only = True
 # if var.close_only:
 #     var.cols = ['Close'] if var.dataset_type in ['stock','monte_carlo'] else ['univariate']
 # else:
@@ -289,7 +289,7 @@ def lstm_model_sweep(l1_reg, l2_reg, drop_rate, input_len, output_layer, layer_k
 # ###
 #
 # ## target/stop binary outcomes (1 R/R) ##
-# var.target_stop = False 
+# var.target_stop = True 
 # if var.target_stop:
 #     var.num_bars = 1 # must be equal to 1!
 #     var.problem_type = 'binary'
@@ -310,7 +310,7 @@ def lstm_model_sweep(l1_reg, l2_reg, drop_rate, input_len, output_layer, layer_k
 #     if var.embedding_type == 'light':
 #         var.vector_size = 1
 #     
-# generator = True
+# generator = False
 # if generator: 
 #     ## save all stocks to csv and tfrecords, then load tfrecords as dataset
 #     var.train_validation = 0.8 #False # Uses traning data to create test set (for validation)
@@ -361,15 +361,6 @@ def get_model_arch(model_arch, var, sweep=False):
                        layer_kwargs, var)
     return model
 
-def reset_model_checkpoint(path=os.getcwd()):
-    total_epochs = 0
-    all_history = {}
-    # delete last saved model
-    checkpoint_path_base = f'{path}/model_checkpoints'
-    checkpoint_path_model = checkpoint_path_base + '/model.ckpt'
-    if os.path.exists(checkpoint_path_base):
-        shutil.rmtree(checkpoint_path_base)
-    return total_epochs, all_history, checkpoint_path_base, checkpoint_path_model
 
 def compile_model(model, lr, var):
     adam = tf.keras.optimizers.Adam(learning_rate=lr)
@@ -383,6 +374,7 @@ def compile_model(model, lr, var):
         model.compile(optimizer=adam, loss='mse', metrics=[rmse])
         
     return model
+
 
 def set_model_hyperparams(epochs, kwargs, plot_lr_rate, decrease_lr_rate, validation,
                           test_dataset, generator):
@@ -405,6 +397,17 @@ def set_model_hyperparams(epochs, kwargs, plot_lr_rate, decrease_lr_rate, valida
     return kwargs
 
 
+def reset_model_checkpoint(path=os.getcwd()):
+    total_epochs = 0
+    all_history = {}
+    # delete last saved model
+    checkpoint_path_base = f'{path}/model_checkpoints'
+    checkpoint_path_model = checkpoint_path_base + '/model.ckpt'
+    if os.path.exists(checkpoint_path_base):
+        shutil.rmtree(checkpoint_path_base)
+    return total_epochs, all_history, checkpoint_path_base, checkpoint_path_model
+
+
 def del_unneeded_checkpoints(checkpoint_path_base, all_history, metric):
     print('deleting uneeded checkpoints')
     epochs_idx = [
@@ -424,14 +427,14 @@ def del_unneeded_checkpoints(checkpoint_path_base, all_history, metric):
 # tf.keras.backend.clear_session()
 # ###
 # model_arch = 'dnn' # 'dnn','lstm','conv1d','incept1d'
-# var.l1_reg = 1e-7 #1e-6
-# var.l2_reg = 0 #1e-7 #1e-5
-# var.drop_rate = 0 #0.1 #0.2
+# var.l1_reg = 1e-7 #1e-9 #1e-6
+# var.l2_reg = 1e-7 #1e-8 #1e-5
+# var.drop_rate = 0 #0.2 #0.1 #0.2
 # ###
 # sweep = True
 # if sweep:
 #     var.layers = 5
-#     var.units = 200
+#     var.units = 100
 #     var.lstm_layers = 1
 #
 # model = get_model_arch(model_arch, var, sweep)
@@ -448,14 +451,14 @@ def del_unneeded_checkpoints(checkpoint_path_base, all_history, metric):
 #     print('loading model')
 #     model = tf.keras.models.load_model(checkpoint_path_model)
 #
-# model = compile_model(model=model, lr=1e-5, var=var)
+# model = compile_model(model=model, lr=1e-4, var=var)
 #
 # gc.collect()
 #
 # plot_lr_rate = False
 # decrease_lr_rate = False
 # validation = True
-# epochs = 200
+# epochs = 100
 #
 # checkpoint_path_cb = checkpoint_path_base+'/model_epoch-{epoch}.ckpt'
 # cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path_cb,
@@ -484,7 +487,6 @@ def del_unneeded_checkpoints(checkpoint_path_base, all_history, metric):
 # for key, value in history.history.items():
 #     all_history.setdefault(key, [])
 #     all_history[key] += value
-#     
 
 # %% tags=["active-ipynb"]
 # start_epoch = 0
@@ -541,7 +543,7 @@ def del_unneeded_checkpoints(checkpoint_path_base, all_history, metric):
 
 
 # %% tags=["active-ipynb"]
-# del_unneeded_checkpoints(checkpoint_path_base, all_history, metric)
+# #del_unneeded_checkpoints(checkpoint_path_base, all_history, metric)
 
 # %%
 def explore_epoch(metric, man_epoch_idx, man_val_metric, checkpoint_path_base, all_history, model):

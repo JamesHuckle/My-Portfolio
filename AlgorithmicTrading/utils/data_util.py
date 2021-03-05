@@ -103,12 +103,15 @@ def process_file(file_name, save_file_name='', data_folder=None):
         data.to_csv(f"{folder}/{save_file_name}")
     return data 
     
-def prep_stock_data(all_stock_data, filter_start_date_tuple=None):
+def prep_stock_data(all_stock_data, filter_start_date_tuple=None, volume=True):
     stock_tickers = list(set(all_stock_data.columns.get_level_values(1)))
     loaded_files = {}
     print('num stocks:',len(stock_tickers))
+    cols = ['Open','High','Low','Close']
+    if volume:
+        cols = cols + ['Volume']
     for stock in stock_tickers:
-        columns = [(price, stock) for price in ['Open','High','Low','Close']]
+        columns = [(price, stock) for price in cols]
         my_stock = all_stock_data[columns]
         my_stock = my_stock.droplevel(level=1, axis='columns')   
         my_stock.dropna(inplace=True)
@@ -501,7 +504,7 @@ def create_dataset(file_name, var):
   
     x_shape = x.shape
     x_test_shape = x_test.shape
-    
+        
     if var.standardize:
         global scaler
         if var.standardize == 'std':

@@ -68,7 +68,7 @@ async def async_get(session, pair, exchange):
        return pd.DataFrame()
     return data
 
- 
+
 async def async_get_data(pairs_and_exchanges): 
     async with aiohttp.ClientSession() as session: 
         tasks = [] 
@@ -80,7 +80,7 @@ async def async_get_data(pairs_and_exchanges):
             all_pairs.append(res)
         data = pd.concat(all_pairs)
         return data 
- 
+
 
 def get_best_pairs(e='Coinbase'):
     pair_info = requests.get(f'https://min-api.cryptocompare.com/data/pair/mapping/exchange?e={e}&api_key={api_key}').json()['Data']
@@ -102,7 +102,7 @@ def add_roll_and_lag(data, feature, roll_range, lag_range):
     for lag in lag_range:
         data[f"{feature}_lag_{lag}"] = data[feature].shift(lag)
         
-    data[f"{feature}_pct_change"] = data[feature].pct_change() * 100
+    data[f"{feature}_pct_change"] = data[feature].pct_change().replace([np.inf, -np.inf], 0)
     return data
 
 
@@ -111,15 +111,20 @@ def dist_from_high_low(data, win_range, plot=False):
         for col in ['high','low']:
             if col == 'high':
                 data[f"extreme_{col}_{win}"] = data[col].rolling(win, win).max()
-                data[f"dist_from_{col}_window_{win}"] = (1 - (data[col] / data[col].rolling(win, win).max()))*100
+                data[f"dist_from_{col}_window_{win}"] = 1 - (data[col] / data[f"extreme_{col}_{win}"])
             elif col == 'low':
                 data[f"extreme_{col}_{win}"] = data[col].rolling(win, win).min()
-                data[f"dist_from_{col}_window_{win}"] = (1 - (data[col].rolling(win, win).min() / data[col]))*100 
-                
+                data[f"dist_from_{col}_window_{win}"] = 1 - (data[f"extreme_{col}_{win}"] / data[col]) 
+            
         dist_high = data[f"dist_from_high_window_{win}"]
         dist_low = data[f"dist_from_low_window_{win}"]
-        data[f"distance_from_high_low_{win}"] = dist_low / (dist_high + dist_low)
-    
+        both_high_and_low = ((dist_high + dist_low) == 0)
+        data.loc[both_high_and_low,
+                 f"distance_from_high_low_{win}"] = 0.5
+        data.loc[~both_high_and_low,
+                 f"distance_from_high_low_{win}"] = dist_low / (dist_high + dist_low)
+
+        
     ## plotting results
     if plot:
         for plot_col in ['low','high']:
@@ -142,9 +147,10 @@ def dist_from_high_low(data, win_range, plot=False):
 def ema(data, roll_range):
     points = ['high','low','close']
     for price_point in points:
-        for price_point_diff in points:
-            for roll in roll_range:
-                ema = talib.EMA(data[price_point], timeperiod=roll)
+        for roll in roll_range:
+            ema = talib.EMA(data[price_point], timeperiod=roll)
+            data[f'ema_{roll}_{price_point}'] = ema
+            for price_point_diff in points:
                 data[f"ema_{roll}_{price_point}_diff_{price_point_diff}"] = ((data[price_point_diff] / ema) -1) * 100
     return data
 
@@ -152,8 +158,9 @@ def ema(data, roll_range):
 def stoch(data, period_range, speed_range, plot=False):
     for period in range(2,15,2):
         for speed in range(1,15,2):
-            data[f'slowk_{period}_{speed}'], data[f'slowd_{period}_{speed}'] = talib.STOCH(data['high'], data['low'],
-                                                                                data['close'], period, speed, 0, speed, 0)
+            (data[f'slowk_{period}_{speed}'],
+             data[f'slowd_{period}_{speed}']) = talib.STOCH(data['high'], data['low'],
+                                                data['close'], period, speed, 0, speed, 0)
 
     ## plot data
     if plot:
@@ -163,13 +170,14 @@ def stoch(data, period_range, speed_range, plot=False):
         data[:200].plot(x='time', y=f'slowk_5_3', ax=ax[1])
         data[:200].plot(x='time', y=f'slowd_5_3', ax=ax[1])
     return data
-    
-    
+
+
 def stoch_turn(data, thresh_range, plot=False):
     period = 5
     speed = 3
-    data[f'slowk_{period}_{speed}'], data[f'slowd_{period}_{speed}'] = talib.STOCH(data['high'], data['low'],
-                                                                       data['close'], period, speed, 0, speed, 0)
+    (data[f'slowk_{period}_{speed}'],
+    data[f'slowd_{period}_{speed}']) = talib.STOCH(data['high'], data['low'],
+                                                   data['close'], period, speed, 0, speed, 0)
     
     for thresh in thresh_range:
         turn_up = (data[f'slowk_{period}_{speed}'].shift(1) < data[f'slowd_{period}_{speed}'].shift(1)) & \
@@ -199,27 +207,32 @@ def stoch_turn(data, thresh_range, plot=False):
 
 def candlestick_patters(data, meth_filter=None):
     if meth_filter:
-        candle_meth = {meth:getattr(talib,meth) for meth in dir(talib) if 'CDL' in meth and meth in meth_filter}
+        candle_meth = {meth:getattr(talib,meth) for meth in dir(talib) 
+                       if 'CDL' in meth and meth in meth_filter}
     else:
-        candle_meth = {meth:getattr(talib,meth) for meth in dir(talib) if 'CDL' in meth}
+        candle_meth = {meth:getattr(talib,meth) for meth in dir(talib) 
+                       if 'CDL' in meth}
     for name, meth in candle_meth.items():
         data[f"{name}_0_0"] = meth(data['open'], data['high'], data['low'], data['close'])
-        sample = data[f"{name}_0_0"] > 0
-        data.loc[sample,f"{name}_0_0"] = 1
+        data.loc[data[f"{name}_0_0"] <= 0, f"{name}_0_0"] = 0
+        data.loc[data[f"{name}_0_0"] > 0, f"{name}_0_0"] = 1
     return data
 
 
 def adx(data, period_range, upper_range, padding_range, plot=False):
     for period in period_range:
+        adx = talib.ADX(data['high'], data['low'], data['close'], period)
+        data[f'adx_{period}'] = adx
         for upper in upper_range:
             for padding in padding_range:
                 name = f'adx_{period}_{upper}_{padding}'
-                data[name] = talib.ADX(data['high'], data['low'], data['close'], period)
                 roll = data['close'].rolling(period).mean()
-                down = (data[name] > upper) & (data[name] < upper+padding) & (data['close'] <= roll)
-                up = (data[name] > upper) & (data[name] < upper+padding) & (data['close'] > roll)
-                data.loc[down,f"{name}_down"] = 1
-                data.loc[up,f"{name}_up"] = 1
+                down = (adx > upper) & (adx < upper+padding) & (data['close'] <= roll)
+                up = (adx > upper) & (adx < upper+padding) & (data['close'] > roll)
+                data.loc[down, f"{name}_down"] = 1
+                data[f"{name}_down"].fillna(0, inplace=True)
+                data.loc[up, f"{name}_up"] = 1
+                data[f"{name}_up"].fillna(0, inplace=True)
         
     ## plot data
     if plot:
@@ -250,7 +263,7 @@ def rsi(data, period_range, plot=False):
         data[:200].plot(x='time', y='close', ax=ax[0])
         data[:200].plot(x='time', y=f'rsi_10', ax=ax[1])
     return data
-    
+
 
 def print_candlestick_chart(data):
     fig = go.Figure(data=[go.Candlestick(x=data['time'],
@@ -285,8 +298,10 @@ def binary_var(data, feature_name, range1=None, range2=None, range3=None, range4
                         if len(feature) == 0:
                             continue
                         t, p = ks_2samp(feature['target'], data['target'])
-                        results[binary_feature] = {'p_value':p, '#_instances':len(feature),
-                                                   'target_mean_diff':feature['target'].mean() - target_mean}
+                        results[binary_feature] = {
+                            'p_value':p, '#_instances':len(feature),
+                            'target_mean_diff':feature['target'].mean() - target_mean
+                        }
     elif range3:
         for feat1 in range1:
             for feat2 in range2:
@@ -298,8 +313,10 @@ def binary_var(data, feature_name, range1=None, range2=None, range3=None, range4
                     if len(feature) == 0:
                         continue
                     t, p = ks_2samp(feature['target'], data['target'])
-                    results[binary_feature] = {'p_value':p, '#_instances':len(feature),
-                                               'target_mean_diff':feature['target'].mean() - target_mean}
+                    results[binary_feature] = {
+                        'p_value':p, '#_instances':len(feature),
+                        'target_mean_diff':feature['target'].mean() - target_mean
+                    }
     elif range2:
         for feat1 in range1:
             for feat2 in range2:
@@ -310,8 +327,10 @@ def binary_var(data, feature_name, range1=None, range2=None, range3=None, range4
                 if len(feature) == 0:
                     continue
                 t, p = ks_2samp(feature['target'], data['target'])
-                results[binary_feature] = {'p_value':p, '#_instances':len(feature),
-                                           'target_mean_diff':feature['target'].mean() - target_mean}  
+                results[binary_feature] = {
+                    'p_value':p, '#_instances':len(feature),
+                    'target_mean_diff':feature['target'].mean() - target_mean
+                }  
     elif range1:
         for feat1 in range1:
             binary_feature = f'{feature_name}_{feat1}'
@@ -348,7 +367,7 @@ def plot_binary_var(data, feature_name):
     print('feature',round(feature['target'].mean(),dp),'|',round(feature['target'].std(),dp))
     print('non_feature',round(non_feature['target'].mean(),dp),'|',round(non_feature['target'].std(),dp))
 
-    
+
 def candlestick_test(data, candle_meth):
     results = {}
     for name, meth in candle_meth.items():
@@ -359,20 +378,31 @@ def candlestick_test(data, candle_meth):
 
 
 def feature_pipeline(data, volume_col='volumefrom'):
-    data = add_roll_and_lag(data, volume_col, range(2,100,5), range(1,100,5))
-    data = add_roll_and_lag(data,f'{volume_col}_pct_change', range(2,100,5), range(1,100,5))
-    data = add_roll_and_lag(data,'daily_return', range(2,100,5), range(1,100,5))
-    data = dist_from_high_low(data, range(5,100,5))
-    data = ema(data, range(2,200,10))
+    data[volume_col].replace(0, np.nan, inplace=True)
+    data[volume_col] = data[volume_col].ffill()
+    data = add_roll_and_lag(data, volume_col, range(2,101,5), range(1,101,5))
+    print('roll 1 done')
+    data = add_roll_and_lag(data, f'{volume_col}_pct_change', range(2,101,5), range(1,101,5))
+    print('roll 2 done')
+    data = add_roll_and_lag(data, 'daily_return', range(2,101,5), range(1,101,5))
+    print('roll 3 done')
+    data = dist_from_high_low(data, range(5,101,5))
+    print('high_low done')
+    data = ema(data, range(2,201,10))
+    print('ema done')
     data = stoch(data, range(2,15,2), range(1,15,2))
-    data = stoch_turn(data, range(1,100,5))
+    data = stoch_turn(data, range(1,101,5))
+    print('stoch_turn done')
     data = candlestick_patters(data)
-    data = adx(data, range(4,15,2), range(5,80,10), range(5,30,5))
+    print('candlestick_patters done')
+    data = adx(data, range(10,21,10), range(5,76,10), range(5,21,5))
+    print('adx done')
     data = day_of_week(data)
-    data = adx(data, range(4,15,2), range(5,80,10), range(5,30,5))
-    data = rsi(data, range(4,50,5))
+    data = rsi(data, range(4,51,5))
+    print('rsi done')
+    print('all done')
     
-    data.fillna(0, inplace=True)
+    data.replace([np.inf, -np.inf], 0, inplace=True)
     return data
 
 # time_col = data['time'].copy()
@@ -449,7 +479,8 @@ def tune_hyperparams(model, problem, X_train, y_train):
     }
     if problem == 'classification':
         params['objective'] = ['binary:logistic']
-    random_search = RandomizedSearchCV(model, param_distributions=params, n_iter=20, n_jobs=-1, cv=5, verbose=3)
+    random_search = RandomizedSearchCV(model, param_distributions=params, n_iter=20,
+                                       n_jobs=-1, cv=5, verbose=3)
     random_search.fit(X_train, y_train)
 
     print(random_search.best_params_)
@@ -463,7 +494,8 @@ def get_huge_out_of_sample(final_pairs, num):
     else:
         config = {}
         for pair, exchanges in final_pairs.items():
-            wanted_exchanges = ['cccagg', 'coinbase', 'binance', 'kraken', 'okex', 'huobi', 'bitfinex', 'gemini', 'poloniex', 'itbit', 'bitstamp']
+            wanted_exchanges = ['cccagg', 'coinbase', 'binance', 'kraken', 'okex',
+                                'huobi', 'bitfinex', 'gemini', 'poloniex', 'itbit', 'bitstamp']
             for want in wanted_exchanges:
                 exchanges = [e.lower() for e in exchanges]
                 if want in exchanges:
@@ -544,7 +576,7 @@ def is_pair_truely_out_of_sample(exchange, pair, top_pair_idx, train_exchange, t
     if pair in in_sample_pairs:
         print('Warning!',pair,'was used to train model, so may give misleading historical backtest results.',
               'It is fine for predicting purposes')
-        
+
 
 def output_accuracy(output_roc_chart, problem, pred_dataset_y, y_predict_proba, predictions, binary_perc):
     if problem == 'classification':
@@ -555,7 +587,7 @@ def output_accuracy(output_roc_chart, problem, pred_dataset_y, y_predict_proba, 
         print(text)
         return text
 
-        
+
 def backtest(positions, pred_dataset_x, predictions, problem, pair, exchange, text):
     all_results = {}
     for position in positions:
