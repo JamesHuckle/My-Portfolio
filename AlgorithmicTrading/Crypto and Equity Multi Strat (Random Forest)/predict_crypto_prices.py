@@ -21,10 +21,15 @@ import talib
 import time
 import json
 import sys
+import ast
 import os
 
 import warnings
 warnings.filterwarnings('ignore')
+
+with open('env.txt', 'r') as f:
+    global api_key
+    api_key = ast.literal_eval(f.read())['cc_api_key']
 
 
 def clean_get_data(data):
@@ -703,8 +708,10 @@ if __name__ == '__main__':
     backtest_trade_directions = backtest_trade_directions.split(',')
     output_fit_chart = False
     output_best_features = None  #10, 20, 40
-    global api_key
-    api_key = '266d47b7944cb63913d48ba13015e5313802adc50eb7ee96694ef644fe265e26'
+
+    with open('env.txt', 'r') as f:
+        global api_key
+        api_key = ast.literal_eval(f.read())['cc_api_key']
 
     if save_model and load_existing_model:
         raise Exception('You cannot both save a model and load another model, choose one!')
